@@ -22,29 +22,236 @@ Capture screenshots of the waveform and save the simulation logs. These will be 
 # Code
 # RAM
 // Verilog code
+```
+module ram_4kb (clk, we, addr, din, dout);
+    input clk;
+    input we;
+    input [11:0] addr;
+    input [7:0] din;
+    output reg [7:0] dout;
+    reg [7:0] mem [0:4095];
+
+    always @(posedge clk) begin
+        if (we)
+            mem[addr] <= din;
+        dout <= mem[addr];
+    end
+endmodule
+```
 
 // Test bench
+```
+`timescale 1ns / 1ps
+module tb_ram_4kb;
+    reg clk;
+    reg we;
+    reg [11:0] addr;
+    reg [7:0] din;
+    wire [7:0] dout;
+    integer i;
+
+    ram_4kb dut (clk, we, addr, din, dout);
+
+    initial clk = 0;
+    always #5 clk = ~clk;
+
+    initial begin
+        we = 0;
+        addr = 0;
+        din = 0;
+        #10;
+
+        for (i = 0; i < 20; i = i + 1) begin
+            @(posedge clk);
+            addr = $random % 4096;
+            din  = $random % 256;
+            we   = 1;
+            @(posedge clk);
+            we   = 0;
+        end
+        $finish;
+    end
+endmodule
+```
 
 // output Waveform
+
+![WhatsApp Image 2025-11-05 at 18 04 35_6dfcc96c](https://github.com/user-attachments/assets/c1986e47-10e0-43da-b89c-5553cc256209)
+
 
 # ROM
- // write verilog code for ROM using $random
+ // verilog code
+ ```
+module rom (
+   input  wire [3:0] addr,   
+   output wire [7:0] data
+);
+   reg [7:0] rom [0:15];
+   initial begin
+       rom[0]  = 8'h10;
+       rom[1]  = 8'h20;
+       rom[2]  = 8'h30;
+       rom[3]  = 8'h40;
+       rom[4]  = 8'h50;
+       rom[5]  = 8'h60;
+       rom[6]  = 8'h70;
+       rom[7]  = 8'h80;
+       rom[8]  = 8'h90;
+       rom[9]  = 8'hA0;
+       rom[10] = 8'hB0;
+       rom[11] = 8'hC0;
+       rom[12] = 8'hD0;
+       rom[13] = 8'hE0;
+       rom[14] = 8'hF0;
+       rom[15] = 8'hFF;
+   end
+   assign data = rom[addr];
+endmodule
+```
  
  // Test bench
+ ```
+`timescale 1ns/1ps
+module tb_rom;
+    reg  [3:0] addr;
+    wire [7:0] data;
+    rom uut (
+        .addr(addr),
+        .data(data)
+    );
+
+    integer i;
+
+    initial begin
+        for (i = 0; i < 16; i = i + 1) begin
+            addr = i;
+            #10;   
+            $display("ADDR = %0d  DATA = %h", addr, data);
+        end
+        $finish;
+    end
+
+endmodule
+```
 
 // output Waveform
+
+![WhatsApp Image 2025-11-05 at 18 04 35_9a36fa8b](https://github.com/user-attachments/assets/cb85de44-3e98-4dd5-82b9-bfd4ed38334e)
+
 
  # FIFO
- // write verilog code for FIFO
+ // verilog code
+ ```
+
+module fifo_s (clk,rst,wr_en,rd_en,data_in,full,data_out,empty,count);
+    input clk;
+    input rst;
+    input wr_en;
+    input [7:0] data_in;
+    input rd_en;
+    output reg full;
+    output reg [7:0] data_out;
+    output reg empty;
+    output reg [4:0] count;
+
+    reg [7:0] mem [0:15];
+    reg [3:0] wr_ptr;
+    reg [3:0] rd_ptr;
+
+always @(posedge clk) 
+   begin
+        if (rst) 
+          begin
+            wr_ptr   <= 0;
+            rd_ptr   <= 0;
+            count    <= 0;
+            data_out <= 0;
+            full     <= 0;
+            empty    <= 1;
+          end 
+      else 
+        begin
+            full  <= (count == 16);
+            empty <= (count == 0);
+if (wr_en && !full) 
+     begin
+            mem[wr_ptr] <= data_in;
+            wr_ptr <= wr_ptr + 1'b1;
+      end
+
+  if (rd_en && !empty) 
+      begin
+                data_out <= mem[rd_ptr];
+                rd_ptr <= rd_ptr + 1'b1;
+      end
+
+case ({wr_en && !full, rd_en && !empty})
+                2'b10: count <= count + 1'b1;
+                2'b01: count <= count - 1'b1;
+                default: count <= count;
+endcase
+full  <= (count == 16);
+            empty <= (count == 0);
+        end
+    end
+endmodule
+```
  
  // Test bench
+ ```
+ `timescale 1ns / 1ps
+module fifo_s_tb;
+    reg clk;
+    reg rst;
+    reg wr_en;
+    reg rd_en;
+    reg [7:0] data_in;
+    wire [7:0] data_out;
+    wire full;
+    wire empty;
+    wire [4:0] count;
+
+   fifo_s uut (clk,rst,wr_en,rd_en,data_in,full,data_out,empty,count );
+
+   always #5 clk = ~clk;
+
+initial 
+     begin
+        clk = 0;
+        rst = 1;
+        wr_en = 0;
+        rd_en = 0;
+        data_in = 8'h00;            #10;
+        rst = 0;                          #10;
+        rst = 1;                          #10;
+        rst = 0;                         
+
+  repeat (5) 
+     begin
+            @(posedge clk);
+            wr_en = 1;
+            data_in = data_in + 1;
+     end
+        @(posedge clk);
+        wr_en = 0;
+
+ repeat (3) 
+          begin
+            @(posedge clk);
+            rd_en = 1;
+        end
+        @(posedge clk);
+        rd_en = 0;
+ #20;
+        $finish;
+    end
+endmodule
+```
 
 // output Waveform
 
+![WhatsApp Image 2025-11-05 at 18 04 35_76c63545](https://github.com/user-attachments/assets/8647798f-c94b-4d12-916d-436387b02ff3)
 
 
 # Conclusion
 The RAM, ROM, FIFO memory with read and write operations was designed and successfully simulated using Verilog HDL. The testbench verified both the write and read functionalities by simulating the memory operations and observing the output waveforms. The experiment demonstrates how to implement memory operations in Verilog, effectively modeling both the reading and writing processes.
- 
- 
-
